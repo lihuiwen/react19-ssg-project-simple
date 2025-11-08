@@ -7,14 +7,13 @@
  * The "use client" directive marks this as a Client Component,
  * meaning it will be hydrated in the browser and can use hooks like useState.
  *
- * In Phase 1, this component will be:
- * 1. Rendered to HTML during build (server-side)
- * 2. Hydrated in the browser (making it interactive)
+ * Phase 2: RSC 序列化器会识别这个组件为 Client Component
+ * 并创建占位符，而不是在服务端执行它
  */
 
 import { useState } from 'react';
 
-export default function Counter() {
+function Counter() {
   const [count, setCount] = useState(0);
 
   return (
@@ -96,3 +95,8 @@ export default function Counter() {
     </div>
   );
 }
+
+// 为 RSC 序列化器添加组件路径标记
+(Counter as any).__componentPath = 'src/components/Counter.client.tsx';
+
+export default Counter;

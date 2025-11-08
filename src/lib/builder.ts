@@ -1,17 +1,17 @@
 /**
- * Core SSG Builder
+ * Core SSG Builder - Phase 2 (RSC)
  *
- * This script is the heart of our Static Site Generation system.
- * It reads route configurations, renders React components to HTML strings,
- * and writes static HTML files to the dist/ directory.
+ * 构建流程已升级为 RSC 模式：
+ * 1. 读取路由配置
+ * 2. 对每个路由：
+ *    - 导入页面组件
+ *    - 使用 RSC 序列化器生成 RSC payload
+ *    - 使用 renderToString 生成初始 HTML（用于 SEO）
+ *    - 保存 rsc.json 和 HTML
  *
- * Flow:
- * 1. Read routes from routes.config.ts
- * 2. For each route:
- *    - Import the page component
- *    - Render it to HTML string using React's renderToString
- *    - Wrap in HTML template
- *    - Write to dist/{path}.html
+ * Phase 1 vs Phase 2:
+ * - Phase 1: renderToString → HTML + 客户端 hydrate 整个树
+ * - Phase 2: RSC 序列化 → rsc.json + 客户端只 hydrate Client Components
  */
 
 import { renderToString } from 'react-dom/server';
@@ -19,6 +19,7 @@ import { createElement } from 'react';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRSCPayload } from './rsc-serializer.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -31,9 +32,10 @@ interface Route {
 
 /**
  * Create HTML template wrapper
- * This wraps the React-rendered content in a complete HTML document
  *
- * Phase 1 Update: Now includes client-side JavaScript for hydration
+ * Phase 2 Update: 引用 client-rsc.js（RSC 客户端）
+ * - 客户端会加载 rsc.json 重建组件树
+ * - 只 hydrate Client Components，减少 bundle 大小
  */
 function createHTMLTemplate(content: string, title: string): string {
   return `<!DOCTYPE html>
@@ -41,7 +43,7 @@ function createHTMLTemplate(content: string, title: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="React 19 SSG Project - Static Site Generation Demo">
+  <meta name="description" content="React 19 SSG Project - RSC Demo">
   <title>${title}</title>
   <style>
     * {
@@ -60,18 +62,22 @@ function createHTMLTemplate(content: string, title: string): string {
 <body>
   <div id="root">${content}</div>
 
-  <!-- Phase 1: Client-side JavaScript for hydration -->
-  <!-- This script will "hydrate" the server-rendered HTML, making it interactive -->
-  <script src="/assets/client.js"></script>
+  <!-- Phase 2: RSC 客户端 JavaScript -->
+  <!-- 加载 rsc.json，重建组件树，只 hydrate Client Components -->
+  <script src="/assets/client-rsc.js"></script>
 </body>
 </html>`;
 }
 
 /**
- * Build a single page
+ * Build a single page - Phase 2 (RSC)
+ *
+ * 生成两个文件：
+ * 1. {path}.html - 包含初始 HTML（用于 SEO 和快速首屏）
+ * 2. rsc.json - RSC payload（客户端用于重建组件树）
  */
 async function buildPage(route: Route): Promise<void> {
-  console.log(`📄 Building: ${route.path}.html`);
+  console.log(`📄 Building: ${route.path}.html (RSC mode)`);
 
   try {
     // Import the page component dynamically
@@ -83,11 +89,15 @@ async function buildPage(route: Route): Promise<void> {
       throw new Error(`No default export found in ${route.component}.tsx`);
     }
 
-    // Render React component to HTML string
+    // Phase 2: 生成 RSC Payload
+    console.log(`  🔄 Serializing to RSC payload...`);
+    const rscPayload = createRSCPayload(PageComponent);
+
+    // 仍然使用 renderToString 生成初始 HTML（用于 SEO）
     const content = renderToString(createElement(PageComponent));
 
     // Wrap in complete HTML document
-    const html = createHTMLTemplate(content, `${route.component} - React 19 SSG`);
+    const html = createHTMLTemplate(content, `${route.component} - React 19 RSC`);
 
     // Ensure dist directory exists
     const distDir = path.resolve(__dirname, '../../dist');
@@ -96,10 +106,18 @@ async function buildPage(route: Route): Promise<void> {
     }
 
     // Write HTML file
-    const outputPath = path.join(distDir, `${route.path}.html`);
-    fs.writeFileSync(outputPath, html, 'utf-8');
+    const htmlPath = path.join(distDir, `${route.path}.html`);
+    fs.writeFileSync(htmlPath, html, 'utf-8');
+    console.log(`  ✅ HTML: ${route.path}.html (${Buffer.byteLength(html)} bytes)`);
 
-    console.log(`✅ Built: ${route.path}.html`);
+    // Write RSC Payload
+    const rscJson = JSON.stringify(rscPayload, null, 2);
+    const rscPath = path.join(distDir, 'rsc.json');
+    fs.writeFileSync(rscPath, rscJson, 'utf-8');
+    console.log(`  ✅ RSC Payload: rsc.json (${Buffer.byteLength(rscJson)} bytes)`);
+    console.log(`     - Tree nodes: ${rscPayload.tree.length}`);
+    console.log(`     - Client Components: ${Object.keys(rscPayload.clientComponents).length}`);
+
   } catch (error) {
     console.error(`❌ Failed to build ${route.path}:`, error);
     throw error;

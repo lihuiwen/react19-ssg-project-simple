@@ -8,7 +8,7 @@
 
 ## 📊 当前状态
 
-✅ **MVP-Phase 1 已完成**：Client 岛屿 + Hydration
+🎉 **MVP-Phase 2 已完成**：简化版 React Server Components (RSC)
 
 ### 已实现功能
 
@@ -16,18 +16,24 @@
 - ✅ TypeScript 支持
 - ✅ 静态 HTML 生成
 - ✅ 路由配置系统
-- ✅ **客户端 Hydration（`hydrateRoot`）** ⬅️ 新增！
-- ✅ **交互式组件（Counter）** ⬅️ 新增！
-- ✅ **Webpack 打包客户端代码** ⬅️ 新增！
-- ✅ **双入口构建系统（server + client）** ⬅️ 新增！
+- ✅ 客户端 Hydration（`hydrateRoot`）
+- ✅ 交互式组件（Counter）
+- ✅ Webpack 打包客户端代码
+- ✅ 双入口构建系统（server + client）
+- ✅ **RSC 组件树序列化** ⬅️ Phase 2 新增！
+- ✅ **Server/Client 组件分离** ⬅️ Phase 2 新增！
+- ✅ **RSC Payload 生成（rsc.json）** ⬅️ Phase 2 新增！
+- ✅ **客户端组件树重建** ⬅️ Phase 2 新增！
+- ✅ **选择性 Hydration** ⬅️ Phase 2 新增！
 
 ### 技术栈
 
 - **React**: 19.0.0-rc.1
-- **构建工具**: Webpack 5（Phase 1 将使用）
+- **构建工具**: Webpack 5
 - **TypeScript**: 5.9.3
 - **运行时**: tsx（用于执行构建脚本）
 - **包管理**: pnpm
+- **RSC**: 手写简化实现（序列化 + 反序列化）
 
 ## 🚀 快速开始
 
@@ -54,9 +60,9 @@ pnpm preview
 然后在浏览器打开 `http://localhost:3000`
 
 **为什么需要本地服务器？**
-- Phase 1 添加了客户端 JavaScript
-- 浏览器安全策略要求通过 HTTP 协议加载脚本
-- 直接打开 HTML 文件无法加载 `/assets/client.js`
+- Phase 2 需要加载客户端 JavaScript 和 rsc.json
+- 浏览器安全策略要求通过 HTTP 协议加载脚本和 JSON
+- 直接打开 HTML 文件无法加载 `/assets/client-rsc.js` 和 `/rsc.json`
 
 ### 其他命令
 
@@ -72,30 +78,117 @@ pnpm rebuild       # 清理并重新构建
 ```
 react19-ssg-project-simple/
 ├── src/
-│   ├── pages/                    # 页面组件
-│   │   └── index.tsx             # 首页（Server Component）
-│   ├── components/               # 共享组件
-│   │   └── Counter.client.tsx   # 交互式计数器（Client Component）
-│   ├── entries/                  # 构建入口
-│   │   └── client.tsx            # 客户端 hydration 入口
+│   ├── pages/                     # 页面组件
+│   │   └── index.tsx              # 首页（Server Component）
+│   ├── components/                # 共享组件
+│   │   └── Counter.client.tsx    # 交互式计数器（Client Component）
+│   ├── entries/                   # 构建入口
+│   │   ├── client.tsx             # Phase 1: 客户端 hydration 入口
+│   │   └── client-rsc.tsx         # Phase 2: RSC 客户端入口 ⬅️ 新增！
 │   ├── lib/
-│   │   └── builder.ts            # 核心 SSG 构建脚本
-│   └── routes.config.ts          # 路由配置
-├── dist/                         # 构建输出（git ignored）
-│   ├── index.html                # 服务端渲染的 HTML
+│   │   ├── builder.ts             # 核心 SSG + RSC 构建脚本
+│   │   ├── rsc-types.ts           # RSC 类型定义 ⬅️ 新增！
+│   │   ├── rsc-serializer.ts      # RSC 序列化器 ⬅️ 新增！
+│   │   └── rsc-deserializer.ts    # RSC 反序列化器 ⬅️ 新增！
+│   └── routes.config.ts           # 路由配置
+├── dist/                          # 构建输出（git ignored）
+│   ├── index.html                 # 服务端渲染的 HTML (2.6KB)
+│   ├── rsc.json                   # RSC Payload (5.5KB) ⬅️ 新增！
 │   └── assets/
-│       ├── client.js             # 客户端 JS bundle (1MB)
-│       └── client.js.map         # Source map
+│       ├── client-rsc.js          # RSC 客户端 bundle (1MB dev)
+│       └── client-rsc.js.map      # Source map
 ├── docs/
-│   └── Roadmap.md                # 完整的演进规划
-├── webpack.config.cjs            # Webpack 配置（客户端打包）
-├── tsconfig.json                 # TypeScript 配置
+│   ├── Roadmap.md                 # 完整的演进规划
+│   └── RSC-Architecture.md        # RSC 架构文档 ⬅️ 新增！
+├── webpack.config.cjs             # Webpack 配置（RSC 客户端打包）
+├── tsconfig.json                  # TypeScript 配置
 ├── package.json
-├── CLAUDE.md                     # AI 编程助手指南
+├── CLAUDE.md                      # AI 编程助手指南
+├── CHANGELOG.md                   # 变更日志
 └── README.md
 ```
 
 ## 🔍 核心原理
+
+### Phase 2: RSC (React Server Components) 工作流程 ⭐ 当前
+
+#### 构建时（Build Time）
+
+1. **Webpack 打包 Client Components**：
+   ```bash
+   webpack → dist/assets/client-rsc.js  # 只包含 Counter.client.tsx
+   ```
+
+2. **RSC 序列化 + HTML 生成**：
+   ```typescript
+   // src/lib/builder.ts
+   import { createRSCPayload } from './rsc-serializer';
+
+   // 1. 序列化组件树为 RSC Payload
+   const rscPayload = createRSCPayload(PageComponent);
+   fs.writeFileSync('dist/rsc.json', JSON.stringify(rscPayload));
+
+   // 2. 仍然生成 HTML（用于 SEO 和快速首屏）
+   const html = renderToString(<PageComponent />);
+   fs.writeFileSync('dist/index.html', createHTMLTemplate(html));
+   ```
+
+3. **RSC Payload 结构**：
+   ```json
+   {
+     "version": "1.0",
+     "tree": [
+       { "$$type": "element", "tag": "div", ... },
+       { "$$type": "text", "content": "Hello" },
+       { "$$type": "client-placeholder", "id": "Counter_0", ... }
+     ],
+     "clientComponents": {
+       "Counter_0": "src/components/Counter.client.tsx"
+     }
+   }
+   ```
+
+#### 运行时（Browser Runtime）
+
+1. **浏览器加载 HTML**：
+   - 用户立即看到完整内容（服务端渲染）
+   - HTML 中包含 `<script src="/assets/client-rsc.js"></script>`
+
+2. **RSC 客户端启动**：
+   ```typescript
+   // src/entries/client-rsc.tsx
+   import { deserializeFromRSC, fetchRSCPayload } from '../lib/rsc-deserializer';
+
+   // 1. 加载 rsc.json
+   const payload = await fetchRSCPayload('/rsc.json');
+
+   // 2. 注册 Client Components
+   const registry = { 'Counter_0': Counter, ... };
+
+   // 3. 重建组件树
+   const tree = deserializeFromRSC(payload, registry);
+
+   // 4. 只 hydrate Client Components
+   hydrateRoot(document.getElementById('root'), tree);
+   ```
+
+3. **关键优势**：
+   - ✅ Server Components (HomePage) 的代码**不在** client-rsc.js 中
+   - ✅ 客户端 bundle 只包含 Counter.client.tsx
+   - ✅ 组件树结构通过 rsc.json 传输（5.5KB）
+   - ✅ 选择性 hydration - 只激活 Client Components
+
+#### Phase 1 vs Phase 2 对比
+
+| 特性 | Phase 1 | Phase 2 (RSC) |
+|------|---------|---------------|
+| Server Component 代码 | ❌ 包含在 client.js 中 | ✅ 不在客户端 bundle |
+| Client Component 代码 | ✅ 包含在 client.js 中 | ✅ 包含在 client-rsc.js 中 |
+| Hydration | hydrate 整个树 | 只 hydrate Client Components |
+| 组件树传输 | 无（硬编码在 JS 中） | rsc.json (5.5KB) |
+| Bundle 优化潜力 | 低 | 高（Server 代码完全排除） |
+
+---
 
 ### Phase 1: SSG + Hydration 工作流程
 
@@ -167,16 +260,29 @@ react19-ssg-project-simple/
 - Hydration 的工作原理
 - 如何最小化客户端 JavaScript
 
-### 🔮 Phase 2: 简化版 RSC（未来）
+### ✅ Phase 2: 简化版 RSC（已完成）⭐
 
 **目标**: 手写 React Server Components 实现
 
-**核心概念**:
-- Server Components 在构建时执行
-- Client Components 在浏览器执行
-- 序列化 RSC Payload
+**已完成**:
+- ✅ 定义 RSC 类型系统（`rsc-types.ts`，110 行）
+- ✅ 实现 RSC 序列化器（`rsc-serializer.ts`，293 行）
+- ✅ 实现 RSC 反序列化器（`rsc-deserializer.ts`，145 行）
+- ✅ 创建 RSC 客户端入口（`client-rsc.tsx`，80 行）
+- ✅ 集成到构建流程（`builder.ts` 升级）
+- ✅ 验证 Server/Client 组件分离
+- ✅ 验证 RSC Payload 生成和加载
+- ✅ 验证选择性 Hydration
 
-**预计时间**: 3-5 天（高难度）
+**关键学习点**:
+- ✅ RSC 组件树序列化原理
+- ✅ Client Component 检测和占位符生成
+- ✅ Server Component 代码如何排除在客户端 bundle 之外
+- ✅ 组件树反序列化和重建
+- ✅ 选择性 Hydration vs 全树 Hydration
+- ✅ RSC Payload 格式设计（Element、Text、ClientPlaceholder）
+
+**完成时间**: 2025-11-08（1 天实现）
 
 ### 🔮 Phase 3-4: ISR & SSR（未来）
 
@@ -198,7 +304,7 @@ react19-ssg-project-simple/
 
 ## 🎓 学到了什么？
 
-完成 Phase 0-1 后，你应该理解：
+完成 Phase 0-2 后，你应该理解：
 
 ### Phase 0 学习成果
 - ✅ React 的 `renderToString()` API
@@ -215,45 +321,81 @@ react19-ssg-project-simple/
 - ✅ 如何最小化发送到浏览器的 JavaScript
 - ✅ `"use client"` 指令的作用
 
+### Phase 2 学习成果 ⭐
+- ✅ RSC (React Server Components) 核心原理
+- ✅ 组件树序列化和反序列化
+- ✅ Server/Client 组件边界划分
+- ✅ RSC Payload 格式设计（JSON）
+- ✅ 选择性 Hydration 实现
+- ✅ 如何完全排除 Server Component 代码在客户端
+- ✅ Client Component 检测和占位符生成
+- ✅ 组件注册表和动态加载
+- ✅ 简化版 vs 完整版 RSC 的区别
+- ✅ 为什么 RSC 能减少客户端 bundle 大小
+
 ### 关键理解
 - **为什么需要 Hydration？** 让服务端渲染的静态 HTML 变得可交互
 - **为什么区分 Server/Client Component？** 减少客户端 JS 体积，提升性能
 - **什么时候用 `"use client"`？** 只在需要 hooks (useState, useEffect) 或事件处理器时
+- **RSC 如何工作？** Server Components 在构建时执行并序列化为 JSON，Client Components 在浏览器中 hydrate
+- **RSC 的核心优势是什么？** Server Component 代码完全不发送到浏览器，显著减少 bundle 大小
 
 ## 🔄 下一步
 
-1. **验证 Hydration 工作** ⭐ 立即尝试：
-   ```bash
-   pnpm build          # 构建
-   pnpm preview        # 启动本地服务器
-   # 打开 http://localhost:3000
-   # 点击 Counter 按钮，应该能看到数字变化！
-   # 打开浏览器控制台，查看 hydration 日志
-   ```
+### 1. 验证 RSC 工作 ⭐ 已完成
 
-2. **性能分析**:
-   ```bash
-   # 查看 bundle 大小
-   ls -lh dist/assets/client.js        # ~1MB (开发模式)
+```bash
+pnpm build          # 构建（生成 rsc.json + HTML + client-rsc.js）
+pnpm preview        # 启动本地服务器
+# 打开 http://localhost:3000
+# ✅ Counter 按钮能点击
+# ✅ 浏览器控制台显示 RSC 启动日志
+# ✅ Network 面板能看到 rsc.json 加载
+```
 
-   # 对比 HTML 文件
-   cat dist/index.html | grep Counter  # 能看到服务端渲染的 Counter
-   ```
+### 2. 深入理解 RSC
 
-3. **实验练习**:
-   - 创建更多客户端组件（表单、模态框、Tabs等）
-   - 尝试在 Server Component 中使用 `useState`（会报错，理解为什么）
-   - 思考：如何优化 1MB 的 bundle size？（提示：生产模式构建）
+```bash
+# 查看 RSC Payload
+cat dist/rsc.json   # 查看组件树序列化结果
 
-4. **开始 Phase 2**: 参考 `docs/Roadmap.md` 中的 MVP-Phase 2 指南（手写简化 RSC）
+# 验证 Server Component 不在客户端 bundle
+grep -q "Hello from React 19 SSG" dist/assets/client-rsc.js && echo "❌ 包含" || echo "✅ 不包含"
 
-## 💡 Phase 1 关键提示
+# 查看 bundle 大小
+ls -lh dist/assets/client-rsc.js  # ~1MB (开发模式)
+ls -lh dist/rsc.json               # ~5.5KB
+```
 
-- **必须使用本地服务器**: 客户端 JS 需要通过 HTTP 协议加载
-- **查看 Network 面板**: 能看到 `client.js` 的加载（1MB）
-- **查看 Console**: 应该看到 "🎯 Starting client-side hydration..." 日志
-- **测试交互**: Counter 按钮点击后数字变化，证明 hydration 成功
-- **理解权衡**: 为了交互性，我们增加了 1MB 的 JavaScript（后续可优化）
+### 3. 实验练习
+
+- **添加更多 Server Components**: 创建博客文章、数据展示等纯展示组件
+- **添加更多 Client Components**: 表单、模态框、Tabs 等交互组件
+- **观察 Bundle 变化**: 注意 Server Components 不会增加 client-rsc.js 大小
+- **生产模式构建**: 修改 webpack.config.cjs 的 mode 为 'production'，观察 bundle 大小变化
+
+### 4. 后续方向
+
+参考 `docs/Roadmap.md` 和 `CHANGELOG.md`:
+
+- **Phase 2.5 (可选)**: 增强版静态 RSC
+  - 异步 Server Components（真正的 async/await）
+  - 数据获取层（从文件/API 获取数据）
+  - Markdown 渲染
+
+- **Phase 3+ (高难度)**: 完整版 RSC
+  - Streaming RSC（流式传输）⭐⭐⭐⭐⭐
+  - Suspense 支持 ⭐⭐⭐⭐
+  - Server Actions ⭐⭐⭐⭐⭐
+
+## 💡 Phase 2 关键提示
+
+- **RSC Payload**: 组件树序列化为 JSON（5.5KB），包含 Element、Text、ClientPlaceholder 三种节点类型
+- **查看 Network 面板**: 应该看到 `client-rsc.js` (1MB) 和 `rsc.json` (5.5KB) 两个请求
+- **查看 Console**: 应该看到完整的 RSC 启动流程日志（🚀 启动 → 📦 注册 → 📥 加载 → 🌳 重建 → ✨ 完成）
+- **验证分离**: HomePage 的代码（"Hello from React 19 SSG" 等文本）不在 client-rsc.js 中
+- **选择性 Hydration**: 只有 Counter 组件被 hydrate，HomePage 保持静态
+- **理解简化点**: 我们的实现是静态 RSC（构建时），真实 RSC 支持运行时 Streaming 和 Suspense
 
 ## 🤝 贡献
 

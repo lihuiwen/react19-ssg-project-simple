@@ -1,13 +1,15 @@
 /**
- * Webpack Configuration for Client Bundle
+ * Webpack Configuration for RSC Client Bundle
  *
- * This configuration builds the client-side JavaScript bundle that will
- * run in the browser to hydrate the server-rendered HTML.
+ * Phase 2 更新：构建 RSC 客户端 bundle
+ * - 只包含 Client Components（Counter.client.tsx 等）
+ * - 不包含 Server Components（减少 bundle 大小）
+ * - 客户端会加载 rsc.json 重建组件树
  *
  * Key settings:
  * - target: 'web' - Build for browser environment
- * - entry: Client entry point (hydration code)
- * - output: dist/assets/client.js
+ * - entry: RSC client entry (client-rsc.tsx)
+ * - output: dist/assets/client-rsc.js
  * - ts-loader: Compile TypeScript to JavaScript
  */
 
@@ -20,13 +22,13 @@ module.exports = {
   // Production mode for optimized output
   mode: 'development', // Use 'production' for smaller bundles
 
-  // Entry point: our client hydration code
-  entry: './src/entries/client.tsx',
+  // Entry point: RSC client (Phase 2)
+  entry: './src/entries/client-rsc.tsx',
 
   // Output configuration
   output: {
     path: path.resolve(__dirname, 'dist/assets'),
-    filename: 'client.js',
+    filename: 'client-rsc.js', // Phase 2: renamed from client.js
     clean: true, // Clean the output directory before build
   },
 
