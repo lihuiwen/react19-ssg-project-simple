@@ -8,16 +8,25 @@ This is a React 19 progressive rendering architecture project implementing a pha
 
 ## Project Status
 
-**MVP-Phase 0: ✅ COMPLETED** - Minimum viable SSG system is fully functional.
+**MVP-Phase 1: ✅ COMPLETED** - Client islands + Hydration fully working!
 
 **Current State:**
-- ✅ Static HTML generation working (`pnpm build` → `dist/index.html`)
-- ✅ React 19 RC server-side rendering
+- ✅ Static HTML generation (`pnpm build` → `dist/index.html`)
+- ✅ React 19 RC server-side rendering (`renderToString`)
+- ✅ Client-side hydration (`hydrateRoot`) ⬅️ NEW!
+- ✅ Interactive components with `"use client"` ⬅️ NEW!
+- ✅ Webpack client bundling (~1MB dev mode) ⬅️ NEW!
+- ✅ Dual-entry build system (server + client) ⬅️ NEW!
+- ✅ Local development server (`pnpm preview`) ⬅️ NEW!
 - ✅ TypeScript configuration
 - ✅ Route configuration system
-- ✅ Core build script (130 lines)
 
-**Next Phase:** MVP-Phase 1 - Client islands + Hydration
+**Build Output:**
+- HTML: 2.6KB (server-rendered with Counter)
+- Client JS: 1.0MB (dev mode, uncompressed)
+- Build time: ~3.7s
+
+**Next Phase:** MVP-Phase 2 - Simplified RSC implementation
 
 Following the **MVP Learning Path** to understand rendering architecture fundamentals before production deployment.
 
@@ -50,11 +59,13 @@ This project supports two development paths:
 - Define core abstractions: `fetchPageData(params)`, `render(url, data)`, `routes.config.ts`
 - Set up build output structure: `dist/pages/**/index.html`, `dist/assets/**`, `dist/manifests/`
 
-### Phase 1: Pure SSG (Static Site Generation)
-- Full static site generation without RSC or ISR
+### Phase 1: Pure SSG + Client Hydration (✅ Completed)
+- Full static site generation with server-side rendering
 - Client-side islands with `use client` for interactivity
-- CDN deployment with fingerprinted assets
-- Target: Lighthouse Performance ≥ 95, CDN hit rate ≥ 95%
+- Webpack bundling for client JavaScript
+- Hydration using `hydrateRoot()` for interactive components
+- Local development server for testing
+- Achieved: Working Counter component with real-time state updates
 
 ### Phase 2: RSC Integration (Build-time React Server Components)
 - Migrate display components to Server Components
@@ -81,23 +92,26 @@ This project supports two development paths:
 pnpm install              # Install dependencies
 ```
 
-### Build Commands (MVP Phase 0)
+### Build Commands (MVP Phase 1 - Current)
 ```bash
-pnpm build                # Build static SSG → dist/
-tsx src/lib/builder.ts    # Direct build script execution
+pnpm build                # Full build: webpack client bundle + SSG HTML
+pnpm build:client         # Build only client JS → dist/assets/client.js
+pnpm build:html           # Build only static HTML → dist/index.html
+pnpm clean                # Clean dist directory
+pnpm rebuild              # Clean + full build
+```
+
+### Development & Preview (Phase 1)
+```bash
+pnpm preview              # Start local server at http://localhost:3000
+                          # Required to test hydration (loads client.js)
 ```
 
 ### Build Commands (Future - Production)
 ```bash
-pnpm build:static         # Build static SSG output → dist/static
+pnpm build:static         # Build static SSG output → dist/static (Phase 3+)
 pnpm build:ssr            # Build SSR runtime → dist/server (Phase 4)
-pnpm build                # Full build (both static and SSR)
-```
-
-### Development (To be implemented)
-```bash
-pnpm dev                  # Local development server (webpack-dev-server)
-pnpm preview              # Preview production build locally
+pnpm dev                  # Hot-reload dev server (To be implemented)
 ```
 
 ### Testing (To be implemented)

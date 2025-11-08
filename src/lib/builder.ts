@@ -32,6 +32,8 @@ interface Route {
 /**
  * Create HTML template wrapper
  * This wraps the React-rendered content in a complete HTML document
+ *
+ * Phase 1 Update: Now includes client-side JavaScript for hydration
  */
 function createHTMLTemplate(content: string, title: string): string {
   return `<!DOCTYPE html>
@@ -57,8 +59,10 @@ function createHTMLTemplate(content: string, title: string): string {
 </head>
 <body>
   <div id="root">${content}</div>
-  <!-- Phase 0: No client-side JavaScript yet -->
-  <!-- Phase 1 will add: <script src="/assets/client.js"></script> -->
+
+  <!-- Phase 1: Client-side JavaScript for hydration -->
+  <!-- This script will "hydrate" the server-rendered HTML, making it interactive -->
+  <script src="/assets/client.js"></script>
 </body>
 </html>`;
 }

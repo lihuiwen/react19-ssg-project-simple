@@ -53,17 +53,19 @@ open dist/index.html  # 浏览器能看到 React 渲染的内容
 
 ---
 
-### MVP-Phase 1：Client 岛屿 + Hydration（2-3 天）
+### MVP-Phase 1：Client 岛屿 + Hydration（2-3 天）✅ 已完成
 
 **目标**：理解服务端/客户端渲染边界
 
 **核心任务**：
-- [ ] 添加交互组件：`src/components/Counter.client.tsx`（带 `"use client"` 标记）
-- [ ] 配置 Webpack 双入口：
+- [x] 添加交互组件：`src/components/Counter.client.tsx`（带 `"use client"` 标记）
+- [x] 配置 Webpack 双入口：
   - Server 入口：用于构建时渲染
   - Client 入口：用于浏览器端 hydration
-- [ ] 在生成的 HTML 中注入 `<script>` 标签
-- [ ] 实现客户端 hydration：`hydrateRoot()`
+- [x] 在生成的 HTML 中注入 `<script>` 标签
+- [x] 实现客户端 hydration：`hydrateRoot()`
+- [x] 添加本地开发服务器（serve）
+- [x] 修改 webpack.config.js → webpack.config.cjs（ES module 兼容）
 
 **关键代码结构**：
 ```
@@ -84,9 +86,22 @@ webpack.config.js          # 双入口配置
 - ❌ 不做代码分割（所有 client 组件打成一个 bundle）
 - ❌ 不做按需加载（全量 hydration）
 
-**验收**：
-- 页面初始 HTML 由服务端渲染（查看网页源代码能看到内容）
-- 交互功能正常（Counter 点击能计数）
+**验收结果**：✅ 全部通过
+- ✅ 页面初始 HTML 由服务端渲染（查看网页源代码能看到完整 Counter HTML）
+- ✅ 交互功能正常（Counter 点击能计数，state 实时更新）
+- ✅ 浏览器控制台显示 hydration 日志
+- ✅ 客户端 JS bundle 成功加载（dist/assets/client.js ~1MB 开发模式）
+- ✅ 本地服务器运行正常（http://localhost:3000）
+
+**构建产物**：
+- `dist/index.html`: 2.6KB（含服务端渲染的完整 HTML）
+- `dist/assets/client.js`: 1.0MB（开发模式，未压缩）
+- `dist/assets/client.js.map`: 1.2MB（Source map）
+
+**构建时间**：
+- Webpack 客户端打包：~3.6s
+- SSG HTML 生成：~32ms
+- 总计：~3.7s
 
 ---
 

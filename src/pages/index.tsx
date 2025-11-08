@@ -1,9 +1,16 @@
 /**
  * Homepage Component
  *
- * This is a simple React component that will be rendered to static HTML
- * during the build process using React's renderToString.
+ * This component demonstrates the hybrid rendering approach:
+ * 1. Rendered to static HTML at build time (SSG)
+ * 2. Hydrated in the browser to become interactive
+ *
+ * It contains both:
+ * - Server Component parts (this file, no "use client")
+ * - Client Component parts (Counter, with "use client")
  */
+
+import Counter from '../components/Counter.client';
 
 export default function Home() {
   return (
@@ -32,21 +39,26 @@ export default function Home() {
           <li>React 19 RC Server-Side Rendering</li>
           <li>TypeScript Support</li>
           <li>Static HTML Generation</li>
-          <li>No JavaScript in Browser (yet!)</li>
+          <li>✨ Client-Side Hydration (NEW!)</li>
+          <li>✨ Interactive Components (NEW!)</li>
         </ul>
       </div>
+
+      {/* Client Component - will be hydrated in browser */}
+      <Counter />
+
       <div style={{
         marginTop: '1.5rem',
         padding: '1rem',
-        backgroundColor: '#fef3c7',
+        backgroundColor: '#dcfce7',
         borderRadius: '0.5rem',
-        borderLeft: '4px solid #f59e0b'
+        borderLeft: '4px solid #10b981'
       }}>
         <p style={{ margin: 0 }}>
-          <strong>📌 Current Phase:</strong> MVP-Phase 0 - Minimal SSG System
+          <strong>📌 Current Phase:</strong> MVP-Phase 1 - Client Islands + Hydration
         </p>
         <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
-          Next up: Phase 1 will add client-side hydration for interactivity!
+          The page is now interactive! Open browser console to see hydration logs.
         </p>
       </div>
     </div>

@@ -8,7 +8,7 @@
 
 ## 📊 当前状态
 
-✅ **MVP-Phase 0 已完成**：最小可运行的 SSG 系统
+✅ **MVP-Phase 1 已完成**：Client 岛屿 + Hydration
 
 ### 已实现功能
 
@@ -16,7 +16,10 @@
 - ✅ TypeScript 支持
 - ✅ 静态 HTML 生成
 - ✅ 路由配置系统
-- ✅ 简单的构建脚本（约 130 行核心代码）
+- ✅ **客户端 Hydration（`hydrateRoot`）** ⬅️ 新增！
+- ✅ **交互式组件（Counter）** ⬅️ 新增！
+- ✅ **Webpack 打包客户端代码** ⬅️ 新增！
+- ✅ **双入口构建系统（server + client）** ⬅️ 新增！
 
 ### 技术栈
 
@@ -42,19 +45,26 @@ pnpm build
 
 这将生成 `dist/index.html`
 
-### 查看结果
+### 预览结果（推荐）
 
 ```bash
-open dist/index.html
+pnpm preview
 ```
 
-或者在浏览器中打开 `dist/index.html`
+然后在浏览器打开 `http://localhost:3000`
+
+**为什么需要本地服务器？**
+- Phase 1 添加了客户端 JavaScript
+- 浏览器安全策略要求通过 HTTP 协议加载脚本
+- 直接打开 HTML 文件无法加载 `/assets/client.js`
 
 ### 其他命令
 
 ```bash
-pnpm clean    # 清理 dist 目录
-pnpm rebuild  # 清理并重新构建
+pnpm build:client  # 只构建客户端 JS bundle
+pnpm build:html    # 只构建静态 HTML
+pnpm clean         # 清理 dist 目录
+pnpm rebuild       # 清理并重新构建
 ```
 
 ## 📁 项目结构
@@ -62,43 +72,76 @@ pnpm rebuild  # 清理并重新构建
 ```
 react19-ssg-project-simple/
 ├── src/
-│   ├── pages/                 # 页面组件
-│   │   └── index.tsx          # 首页
+│   ├── pages/                    # 页面组件
+│   │   └── index.tsx             # 首页（Server Component）
+│   ├── components/               # 共享组件
+│   │   └── Counter.client.tsx   # 交互式计数器（Client Component）
+│   ├── entries/                  # 构建入口
+│   │   └── client.tsx            # 客户端 hydration 入口
 │   ├── lib/
-│   │   └── builder.ts         # 核心 SSG 构建脚本
-│   └── routes.config.ts       # 路由配置
-├── dist/                      # 构建输出（git ignored）
-│   └── index.html
+│   │   └── builder.ts            # 核心 SSG 构建脚本
+│   └── routes.config.ts          # 路由配置
+├── dist/                         # 构建输出（git ignored）
+│   ├── index.html                # 服务端渲染的 HTML
+│   └── assets/
+│       ├── client.js             # 客户端 JS bundle (1MB)
+│       └── client.js.map         # Source map
 ├── docs/
-│   └── Roadmap.md             # 完整的演进规划
-├── tsconfig.json              # TypeScript 配置
+│   └── Roadmap.md                # 完整的演进规划
+├── webpack.config.cjs            # Webpack 配置（客户端打包）
+├── tsconfig.json                 # TypeScript 配置
 ├── package.json
-├── CLAUDE.md                  # AI 编程助手指南
+├── CLAUDE.md                     # AI 编程助手指南
 └── README.md
 ```
 
 ## 🔍 核心原理
 
-### SSG 工作流程
+### Phase 1: SSG + Hydration 工作流程
 
-1. **读取路由配置** (`src/routes.config.ts`)
-2. **导入页面组件** (`src/pages/*.tsx`)
-3. **渲染为 HTML 字符串** (`renderToString()`)
-4. **包装为完整 HTML 文档**
-5. **写入 `dist/` 目录**
+#### 构建时（Build Time）
 
-### 核心代码
+1. **Webpack 打包客户端代码**：
+   ```bash
+   webpack → dist/assets/client.js  # 浏览器端代码
+   ```
 
-构建脚本核心逻辑（简化版）：
+2. **SSG 生成 HTML**：
+   ```typescript
+   // src/lib/builder.ts
+   const content = renderToString(<PageComponent />);  // Server 渲染
+   const html = createHTMLTemplate(content);           // 注入 <script>
+   fs.writeFileSync('dist/index.html', html);
+   ```
 
-```typescript
-// src/lib/builder.ts
-import { renderToString } from 'react-dom/server';
+#### 运行时（Browser Runtime）
 
-const content = renderToString(<PageComponent />);
-const html = createHTMLTemplate(content);
-fs.writeFileSync('dist/index.html', html);
-```
+1. **浏览器加载 HTML**：
+   - 用户看到完整的静态内容（服务端渲染）
+   - HTML 中包含 `<script src="/assets/client.js"></script>`
+
+2. **客户端 Hydration**：
+   ```typescript
+   // src/entries/client.tsx
+   import { hydrateRoot } from 'react-dom/client';
+
+   hydrateRoot(document.getElementById('root'), <HomePage />);
+   // React "激活"现有 DOM，附加事件监听器
+   ```
+
+3. **页面变为可交互**：
+   - Counter 按钮可以点击
+   - State 变化触发重新渲染
+
+### 关键概念
+
+**Server Component vs Client Component**：
+- **Server Component** (index.tsx): 只在构建时运行，不发送到浏览器
+- **Client Component** (Counter.client.tsx): 标记 `"use client"`，在浏览器中 hydrate
+
+**Hydration vs Rendering**：
+- **Rendering**: `createRoot()` - 从空 div 创建整个 DOM
+- **Hydration**: `hydrateRoot()` - 复用服务端 HTML，只附加交互逻辑
 
 ## 📖 学习路径
 
@@ -108,17 +151,21 @@ fs.writeFileSync('dist/index.html', html);
 - 构建时渲染 vs 运行时渲染
 - 静态 HTML 生成
 
-### ⏭️ Phase 1: Client 岛屿 + Hydration（下一步）
+### ✅ Phase 1: Client 岛屿 + Hydration（已完成）
 
 **目标**: 理解服务端/客户端渲染边界
 
-**核心任务**:
-- 添加交互组件（`"use client"` 标记）
-- 配置 Webpack 双入口（server + client）
-- 实现 `hydrateRoot()`
-- 在 HTML 中注入 `<script>` 标签
+**已完成**:
+- ✅ 创建交互组件（`"use client"` 标记）
+- ✅ 配置 Webpack 双入口（server + client）
+- ✅ 实现 `hydrateRoot()` 客户端激活
+- ✅ HTML 中注入 `<script>` 标签
+- ✅ 构建双产物系统（HTML + JS bundle）
 
-**预计时间**: 2-3 天
+**关键学习点**:
+- Server Component 和 Client Component 的区别
+- Hydration 的工作原理
+- 如何最小化客户端 JavaScript
 
 ### 🔮 Phase 2: 简化版 RSC（未来）
 
@@ -151,38 +198,62 @@ fs.writeFileSync('dist/index.html', html);
 
 ## 🎓 学到了什么？
 
-完成 Phase 0 后，你应该理解：
+完成 Phase 0-1 后，你应该理解：
 
+### Phase 0 学习成果
 - ✅ React 的 `renderToString()` API
 - ✅ 静态站点生成的基本原理
 - ✅ 构建时渲染 vs 客户端渲染的区别
 - ✅ 如何用 TypeScript 编写构建脚本
-- ✅ 如何配置基础的项目结构
+
+### Phase 1 学习成果
+- ✅ React 19 的 `hydrateRoot()` API
+- ✅ Server Component 和 Client Component 的区别
+- ✅ Hydration（激活）的工作原理
+- ✅ Webpack 配置和模块打包
+- ✅ 双入口构建系统（构建时 + 运行时）
+- ✅ 如何最小化发送到浏览器的 JavaScript
+- ✅ `"use client"` 指令的作用
+
+### 关键理解
+- **为什么需要 Hydration？** 让服务端渲染的静态 HTML 变得可交互
+- **为什么区分 Server/Client Component？** 减少客户端 JS 体积，提升性能
+- **什么时候用 `"use client"`？** 只在需要 hooks (useState, useEffect) 或事件处理器时
 
 ## 🔄 下一步
 
-1. **验证当前成果**:
+1. **验证 Hydration 工作** ⭐ 立即尝试：
    ```bash
-   pnpm build
-   open dist/index.html
+   pnpm build          # 构建
+   pnpm preview        # 启动本地服务器
+   # 打开 http://localhost:3000
+   # 点击 Counter 按钮，应该能看到数字变化！
+   # 打开浏览器控制台，查看 hydration 日志
    ```
 
-2. **查看源代码**: 右键查看网页源代码，应该能看到完整的 HTML（不是空白）
+2. **性能分析**:
+   ```bash
+   # 查看 bundle 大小
+   ls -lh dist/assets/client.js        # ~1MB (开发模式)
 
-3. **尝试添加新页面**:
-   - 在 `src/pages/` 创建 `about.tsx`
-   - 在 `src/routes.config.ts` 添加路由
-   - 运行 `pnpm build`
-   - 查看 `dist/about.html`
+   # 对比 HTML 文件
+   cat dist/index.html | grep Counter  # 能看到服务端渲染的 Counter
+   ```
 
-4. **开始 Phase 1**: 参考 `docs/Roadmap.md` 中的 MVP-Phase 1 指南
+3. **实验练习**:
+   - 创建更多客户端组件（表单、模态框、Tabs等）
+   - 尝试在 Server Component 中使用 `useState`（会报错，理解为什么）
+   - 思考：如何优化 1MB 的 bundle size？（提示：生产模式构建）
 
-## 💡 提示
+4. **开始 Phase 2**: 参考 `docs/Roadmap.md` 中的 MVP-Phase 2 指南（手写简化 RSC）
 
-- **查看构建输出**: `dist/index.html` 包含完整的渲染内容
-- **无需服务器**: 现阶段可以直接在浏览器打开 HTML 文件
-- **无客户端 JS**: Phase 0 完全没有浏览器端 JavaScript
-- **理解原理**: 重点是理解 SSG 如何工作，而不是功能完整性
+## 💡 Phase 1 关键提示
+
+- **必须使用本地服务器**: 客户端 JS 需要通过 HTTP 协议加载
+- **查看 Network 面板**: 能看到 `client.js` 的加载（1MB）
+- **查看 Console**: 应该看到 "🎯 Starting client-side hydration..." 日志
+- **测试交互**: Counter 按钮点击后数字变化，证明 hydration 成功
+- **理解权衡**: 为了交互性，我们增加了 1MB 的 JavaScript（后续可优化）
 
 ## 🤝 贡献
 
