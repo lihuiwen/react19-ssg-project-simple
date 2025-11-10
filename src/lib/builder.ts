@@ -14,12 +14,11 @@
  * - Phase 2: RSC 序列化 → rsc.json + 客户端只 hydrate Client Components
  */
 
-import { renderToString } from 'react-dom/server';
-import { createElement } from 'react';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRSCPayload } from './rsc-serializer.js';
+import { rscPayloadToHTML } from './rsc-to-html.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -89,12 +88,14 @@ async function buildPage(route: Route): Promise<void> {
       throw new Error(`No default export found in ${route.component}.tsx`);
     }
 
-    // Phase 2: 生成 RSC Payload
-    console.log(`  🔄 Serializing to RSC payload...`);
-    const rscPayload = createRSCPayload(PageComponent);
+    // Phase 2.5: 生成 RSC Payload（支持异步 Server Components）
+    console.log(`  🔄 Serializing to RSC payload (async support)...`);
+    const rscPayload = await createRSCPayload(PageComponent);
 
-    // 仍然使用 renderToString 生成初始 HTML（用于 SEO）
-    const content = renderToString(createElement(PageComponent));
+    // Phase 2.5: 从 RSC payload 生成初始 HTML
+    // 这样即使页面包含 async 组件也能生成 SEO 友好的 HTML
+    console.log(`  🎨 Generating HTML from RSC payload...`);
+    const content = rscPayloadToHTML(rscPayload);
 
     // Wrap in complete HTML document
     const html = createHTMLTemplate(content, `${route.component} - React 19 RSC`);

@@ -15,15 +15,17 @@
 /**
  * RSC 节点类型
  *
- * 简化版 RSC 树可以包含：
+ * Phase 2.5 Update: 扩展节点类型
  * - HTML 元素（div、span 等）
  * - 文本节点
  * - Client Component 占位符
+ * - Fragment（React.Fragment / <>...</>）
  */
 export type RSCNode =
   | RSCElement
   | RSCText
-  | RSCClientPlaceholder;
+  | RSCClientPlaceholder
+  | RSCFragment;
 
 /**
  * 普通 HTML/React 元素
@@ -58,6 +60,17 @@ export interface RSCClientPlaceholder {
   id: string;                     // 该 Client Component 实例的唯一 ID
   componentPath: string;          // 组件文件路径
   props: Record<string, any>;     // 传递给组件的 props
+}
+
+/**
+ * Fragment 节点
+ *
+ * Phase 2.5: 支持 React.Fragment 和 <>...</>
+ * Fragment 本身不渲染 DOM，只包含子节点
+ */
+export interface RSCFragment {
+  $$type: 'fragment';
+  children: RSCNode[];
 }
 
 /**
@@ -121,4 +134,8 @@ export function isRSCText(node: RSCNode): node is RSCText {
 
 export function isRSCClientPlaceholder(node: RSCNode): node is RSCClientPlaceholder {
   return node.$$type === 'client-placeholder';
+}
+
+export function isRSCFragment(node: RSCNode): node is RSCFragment {
+  return node.$$type === 'fragment';
 }

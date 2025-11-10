@@ -15,7 +15,7 @@
  * - 不处理流式传输
  */
 
-import { createElement, ReactElement, ReactNode } from 'react';
+import { createElement, ReactElement, ReactNode, Fragment } from 'react';
 import type {
   RSCNode,
   RSCElement,
@@ -26,6 +26,7 @@ import {
   isRSCElement,
   isRSCText,
   isRSCClientPlaceholder,
+  isRSCFragment,
 } from './rsc-types';
 
 /**
@@ -67,6 +68,8 @@ export function deserializeFromRSC(
 
 /**
  * 反序列化单个 RSC 节点
+ *
+ * Phase 2.5 Update: 支持 Fragment
  */
 function deserializeNode(
   node: RSCNode,
@@ -76,6 +79,11 @@ function deserializeNode(
   // 处理文本节点
   if (isRSCText(node)) {
     return node.content;
+  }
+
+  // Phase 2.5: 处理 Fragment
+  if (isRSCFragment(node)) {
+    return deserializeFragment(node, clientComponents, componentRegistry);
   }
 
   // 处理 HTML 元素
@@ -91,6 +99,25 @@ function deserializeNode(
   // 未知节点类型
   console.error('未知的 RSC 节点类型:', node);
   return '[未知节点]';
+}
+
+/**
+ * 反序列化 Fragment
+ *
+ * Phase 2.5: Fragment 不渲染 DOM，只渲染子节点
+ */
+function deserializeFragment(
+  fragment: any,
+  clientComponents: Record<string, string>,
+  componentRegistry: ComponentRegistry
+): ReactElement {
+  // 递归反序列化子节点
+  const children = fragment.children.map((child: RSCNode) =>
+    deserializeNode(child, clientComponents, componentRegistry)
+  );
+
+  // 创建 React Fragment
+  return createElement(Fragment, null, ...children);
 }
 
 /**
@@ -117,7 +144,9 @@ function deserializeElement(
 /**
  * 反序列化 Client Component 占位符
  *
- * 从注册表中查找实际的组件并实例化
+ * Phase 2.5 Update: 支持嵌套 Client Components
+ * - 从注册表中查找实际的组件
+ * - 反序列化 props.children 中的嵌套组件
  */
 function deserializeClientPlaceholder(
   placeholder: RSCClientPlaceholder,
@@ -140,8 +169,49 @@ function deserializeClientPlaceholder(
     );
   }
 
+  // Phase 2.5: 反序列化 props（包括 children）
+  const deserializedProps = deserializeProps(props, componentRegistry);
+
   // 实例化 Client Component
-  return createElement(Component, props);
+  return createElement(Component, deserializedProps);
+}
+
+/**
+ * 反序列化 props
+ *
+ * Phase 2.5: 处理 props.children 中的 RSC 节点
+ */
+function deserializeProps(
+  props: Record<string, any>,
+  componentRegistry: ComponentRegistry
+): Record<string, any> {
+  const deserialized: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(props)) {
+    // 特殊处理 children - 可能包含序列化的 RSC 节点
+    if (key === 'children' && Array.isArray(value)) {
+      // 检查 children 是否包含 RSC 节点
+      const hasRSCNodes = value.some(
+        (child: any) => child && typeof child === 'object' && child.$$type
+      );
+
+      if (hasRSCNodes) {
+        // 反序列化 RSC 节点
+        deserialized[key] = value.map((child: any) => {
+          if (child && typeof child === 'object' && child.$$type) {
+            return deserializeNode(child, {}, componentRegistry);
+          }
+          return child;
+        });
+      } else {
+        deserialized[key] = value;
+      }
+    } else {
+      deserialized[key] = value;
+    }
+  }
+
+  return deserialized;
 }
 
 /**

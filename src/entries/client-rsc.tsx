@@ -22,24 +22,32 @@ import {
 } from '../lib/rsc-deserializer';
 
 // 导入所有 Client Components
-// 在真实应用中，这些可能通过动态导入按需加载
+// Phase 2.5: 支持多个 Client Components
 import Counter from '../components/Counter.client';
+import InteractiveCard from '../components/InteractiveCard.client';
 
 /**
  * 初始化 RSC 客户端
+ *
+ * Phase 2.5 Update: 支持多个 Client Components 和嵌套
  */
 async function initRSCClient() {
-  console.log('🚀 RSC Client 启动...');
+  console.log('🚀 RSC Client 启动 (Phase 2.5)...');
 
   try {
     // 1. 创建 Client Component 注册表
-    // 注册表需要同时支持 ID 和路径查找
+    // Phase 2.5: 注册所有 Client Components（包括嵌套的）
     const componentRegistry = createComponentRegistry({
-      // 按 ID 注册（用于快速查找）
+      // Counter 组件
       'Counter_0': Counter,
-
-      // 按路径注册（用于备用查找）
+      'Counter_1': Counter,  // Phase 2.5: 支持多个实例
+      'Counter_2': Counter,
       'src/components/Counter.client.tsx': Counter,
+
+      // Phase 2.5: InteractiveCard 组件
+      'InteractiveCard_0': InteractiveCard,
+      'InteractiveCard_1': InteractiveCard,
+      'src/components/InteractiveCard.client.tsx': InteractiveCard,
     });
 
     console.log('📦 Client Components 已注册:', Object.keys(componentRegistry));

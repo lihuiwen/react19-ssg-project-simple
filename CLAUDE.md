@@ -8,38 +8,45 @@ This is a React 19 progressive rendering architecture project implementing a pha
 
 ## Project Status
 
-**MVP-Phase 2: ✅ COMPLETED** - Simplified React Server Components (RSC) fully working!
+**MVP-Phase 2.5: ✅ COMPLETED** - Enhanced RSC with async, Fragment, and nested components!
 
 **Current State:**
 - ✅ Static HTML generation (`pnpm build` → `dist/index.html`)
-- ✅ React 19 RC server-side rendering (`renderToString`)
+- ✅ React 19 RC server-side rendering (from RSC payload)
 - ✅ Client-side hydration (`hydrateRoot`)
 - ✅ Interactive components with `"use client"`
 - ✅ Webpack client bundling (~1MB dev mode)
 - ✅ Dual-entry build system (server + client)
 - ✅ Local development server (`pnpm preview`)
-- ✅ **RSC component tree serialization** ⬅️ Phase 2 NEW!
-- ✅ **Server/Client component separation** ⬅️ Phase 2 NEW!
-- ✅ **RSC Payload generation (rsc.json)** ⬅️ Phase 2 NEW!
-- ✅ **Client-side tree reconstruction** ⬅️ Phase 2 NEW!
-- ✅ **Selective hydration** ⬅️ Phase 2 NEW!
+- ✅ **RSC component tree serialization** (Phase 2)
+- ✅ **Server/Client component separation** (Phase 2)
+- ✅ **RSC Payload generation (rsc.json)** (Phase 2)
+- ✅ **Client-side tree reconstruction** (Phase 2)
+- ✅ **Selective hydration** (Phase 2)
+- ✅ **Async Server Components** ⬅️ Phase 2.5 NEW!
+- ✅ **Fragment support (React.Fragment / <>...</>)** ⬅️ Phase 2.5 NEW!
+- ✅ **Nested Client Components** ⬅️ Phase 2.5 NEW!
+- ✅ **RSC Payload to HTML conversion** ⬅️ Phase 2.5 NEW!
 - ✅ TypeScript configuration
 - ✅ Route configuration system
 
 **Build Output:**
-- HTML: 2.6KB (server-rendered)
-- RSC Payload: 5.5KB (rsc.json - component tree structure)
+- HTML: 3.7KB (generated from RSC payload)
+- RSC Payload: 21KB (rsc.json - complete component tree with async data)
 - Client JS: 1.0MB (dev mode, only Client Components)
-- Build time: ~4.1s
+- Build time: ~149ms (HTML generation only, webpack ~4.8s)
 
-**Key Achievement:**
+**Key Achievements:**
 - ✅ Server Component code NOT in client bundle
 - ✅ Only Client Components bundled to browser
 - ✅ Component tree transmitted via JSON
+- ✅ Async Server Components execute at build time
+- ✅ Fragment nodes serialized without extra DOM
+- ✅ Client Components can contain other Client Components
 
-**Next Phase:** Optional - Phase 2.5 (Enhanced RSC) or Phase 3+ (Full RSC with Streaming)
+**Next Phase:** Optional - Phase 3 (ISR) / Phase 4 (SSR) or transition to Next.js
 
-Following the **MVP Learning Path** to understand rendering architecture fundamentals before production deployment.
+Following the **MVP Learning Path** - Phase 2.5 completed! Understanding 80%+ of RSC core concepts.
 
 ## Tech Stack (MVP)
 
@@ -53,11 +60,12 @@ Following the **MVP Learning Path** to understand rendering architecture fundame
 
 This project supports two development paths:
 
-1. **MVP Learning Path** (Current) - Simplified implementation for learning:
-   - MVP-Phase 0: Minimal SSG (local filesystem, no CDN)
-   - MVP-Phase 1: Client islands + Hydration
-   - MVP-Phase 2: Simplified RSC implementation
-   - Skip ISR/SSR initially
+1. **MVP Learning Path** (✅ Completed through Phase 2.5) - Simplified implementation for learning:
+   - MVP-Phase 0: Minimal SSG (local filesystem, no CDN) ✅
+   - MVP-Phase 1: Client islands + Hydration ✅
+   - MVP-Phase 2: Simplified RSC implementation ✅
+   - MVP-Phase 2.5: Enhanced RSC (async, Fragment, nested) ✅
+   - MVP-Phase 3-4: ISR/SSR (Optional)
 
 2. **Production Path** - Full production-ready implementation:
    - Phase 0-4 with CDN, S3, monitoring, etc.
@@ -81,13 +89,22 @@ This project supports two development paths:
 ### Phase 2: RSC Integration (Build-time React Server Components) (✅ Completed)
 - ✅ Implemented simplified RSC with component tree serialization
 - ✅ Created RSC type system (`rsc-types.ts`)
-- ✅ Built RSC serializer (`rsc-serializer.ts`, 293 lines)
-- ✅ Built RSC deserializer (`rsc-deserializer.ts`, 145 lines)
+- ✅ Built RSC serializer (`rsc-serializer.ts`)
+- ✅ Built RSC deserializer (`rsc-deserializer.ts`)
 - ✅ Generated `rsc.json` (RSC Payload format)
 - ✅ Server Component code excluded from client bundle
 - ✅ Only Client Components packaged to browser
 - ✅ Selective hydration - only hydrate Client Components
 - Achieved: Complete Server/Client component separation at build time
+
+### Phase 2.5: Enhanced RSC (Build-time Async + Advanced Features) (✅ Completed)
+- ✅ Async Server Components support (build-time async/await)
+- ✅ Fragment support (React.Fragment and `<>...</>`)
+- ✅ Nested Client Components support
+- ✅ RSC Payload to HTML conversion (`rsc-to-html.ts`)
+- ✅ Complete async serialization chain
+- ✅ Example components: AsyncData.server, FragmentList, InteractiveCard.client
+- Achieved: 80%+ of RSC core concepts implemented and understood
 
 ### Phase 3: ISR (Incremental Static Regeneration)
 - Support content updates via stale-while-revalidate (SWR) or webhook triggers

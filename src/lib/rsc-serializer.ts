@@ -15,12 +15,13 @@
  * - 序列化为简单的 JSON 结构
  */
 
-import { createElement, ReactElement, isValidElement } from 'react';
+import { createElement, ReactElement, isValidElement, Fragment } from 'react';
 import type {
   RSCNode,
   RSCElement,
   RSCText,
   RSCClientPlaceholder,
+  RSCFragment,
   RSCPayload,
   RSCContext,
 } from './rsc-types';
@@ -51,19 +52,18 @@ function generateClientComponentId(context: RSCContext, componentName: string): 
 /**
  * 将 React 元素树序列化为 RSC 格式
  *
- * 简化实现：
- * 1. 遍历 React 元素理解结构
- * 2. 通过遍历元素树构建 RSC 树
- * 3. 将 Client Components 替换为占位符
+ * Phase 2.5 Update: 支持异步 Server Components
+ * - 可以处理 async 函数组件
+ * - 在构建时等待所有异步操作完成
  */
-export function serializeToRSC(
+export async function serializeToRSC(
   element: ReactElement,
   context: RSCContext = {
     clientComponentCounter: 0,
     clientComponents: new Map(),
   }
-): { tree: RSCNode[]; clientComponents: Record<string, string> } {
-  const tree = serializeElement(element, context);
+): Promise<{ tree: RSCNode[]; clientComponents: Record<string, string> }> {
+  const tree = await serializeElement(element, context);
 
   // 将 Map 转换为普通对象以便 JSON 序列化
   const clientComponents: Record<string, string> = {};
@@ -79,8 +79,10 @@ export function serializeToRSC(
 
 /**
  * 序列化单个 React 元素
+ *
+ * Phase 2.5 Update: 支持异步处理
  */
-function serializeElement(element: any, context: RSCContext): RSCNode | RSCNode[] {
+async function serializeElement(element: any, context: RSCContext): Promise<RSCNode | RSCNode[]> {
   // 处理 null/undefined
   if (element == null) {
     return [];
@@ -98,12 +100,20 @@ function serializeElement(element: any, context: RSCContext): RSCNode | RSCNode[
 
   // 处理数组
   if (Array.isArray(element)) {
-    return element.flatMap(child => serializeElement(child, context));
+    const results = await Promise.all(
+      element.map(child => serializeElement(child, context))
+    );
+    return results.flat();
   }
 
   // 处理 React 元素
   if (isValidElement(element)) {
     const { type, props } = element;
+
+    // Phase 2.5: 处理 Fragment（React.Fragment 或 <>...</>）
+    if (type === Fragment) {
+      return serializeFragment(props, context);
+    }
 
     // 处理字符串标签（div, span 等）
     if (typeof type === 'string') {
@@ -117,7 +127,7 @@ function serializeElement(element: any, context: RSCContext): RSCNode | RSCNode[
         return serializeClientComponent(type, props, context);
       }
 
-      // 是 Server Component - 执行它
+      // 是 Server Component - 执行它（可能是异步的）
       return serializeServerComponent(type, props, context);
     }
   }
@@ -128,17 +138,39 @@ function serializeElement(element: any, context: RSCContext): RSCNode | RSCNode[
 }
 
 /**
- * 序列化 HTML 元素（div, span 等）
+ * 序列化 Fragment
+ *
+ * Phase 2.5: Fragment 不渲染 DOM，只包含子节点
  */
-function serializeHTMLElement(
+async function serializeFragment(
+  props: any,
+  context: RSCContext
+): Promise<RSCFragment> {
+  const { children } = props;
+
+  // 序列化子元素
+  const serializedChildren = await serializeChildren(children, context);
+
+  return {
+    $$type: 'fragment',
+    children: serializedChildren,
+  };
+}
+
+/**
+ * 序列化 HTML 元素（div, span 等）
+ *
+ * Phase 2.5 Update: 支持异步子元素
+ */
+async function serializeHTMLElement(
   tag: string,
   props: any,
   context: RSCContext
-): RSCElement {
+): Promise<RSCElement> {
   const { children, ...restProps } = props;
 
-  // 递归序列化子元素
-  const serializedChildren = serializeChildren(children, context);
+  // 递归序列化子元素（可能包含异步组件）
+  const serializedChildren = await serializeChildren(children, context);
 
   return {
     $$type: 'element',
@@ -151,20 +183,26 @@ function serializeHTMLElement(
 /**
  * 序列化 Server Component
  *
- * 执行组件函数并序列化其输出
+ * Phase 2.5 Update: 支持异步 Server Components
+ * - 可以使用 async/await
+ * - 可以进行数据获取（fetch、fs.readFile 等）
+ * - 构建时会等待所有异步操作完成
  */
-function serializeServerComponent(
+async function serializeServerComponent(
   Component: any,
   props: any,
   context: RSCContext
-): RSCNode | RSCNode[] {
+): Promise<RSCNode | RSCNode[]> {
   try {
     // 执行 Server Component 函数
-    // 注意：Component 是函数，调用它会返回 ReactElement
+    // Phase 2.5: Component 可能是 async 函数
     const result = Component(props);
 
-    // 序列化结果
-    return serializeElement(result, context);
+    // 检查是否为 Promise（async 函数的返回值）
+    const resolvedResult = result instanceof Promise ? await result : result;
+
+    // 序列化结果（可能包含更多异步组件）
+    return await serializeElement(resolvedResult, context);
   } catch (error) {
     console.error('渲染 Server Component 出错:', Component.name, error);
     return createTextNode(`[错误: ${Component.name}]`);
@@ -174,13 +212,15 @@ function serializeServerComponent(
 /**
  * 序列化 Client Component
  *
- * 创建占位符而不执行组件
+ * Phase 2.5 Update: 支持嵌套 Client Components
+ * - 创建占位符而不执行组件
+ * - 如果 children 包含其他组件，递归序列化它们
  */
-function serializeClientComponent(
+async function serializeClientComponent(
   Component: any,
   props: any,
   context: RSCContext
-): RSCClientPlaceholder {
+): Promise<RSCClientPlaceholder> {
   const componentName = Component.displayName || Component.name || 'Unknown';
 
   // 生成唯一 ID
@@ -193,8 +233,8 @@ function serializeClientComponent(
   // 注册 Client Component
   context.clientComponents.set(id, componentPath);
 
-  // 清理 props（移除函数等）
-  const sanitizedProps = sanitizeProps(props);
+  // Phase 2.5: 序列化 props 和 children（支持嵌套组件）
+  const sanitizedProps = await sanitizePropsWithChildren(props, context);
 
   return {
     $$type: 'client-placeholder',
@@ -206,17 +246,22 @@ function serializeClientComponent(
 
 /**
  * 序列化子元素
+ *
+ * Phase 2.5 Update: 支持异步子元素
  */
-function serializeChildren(children: any, context: RSCContext): RSCNode[] {
+async function serializeChildren(children: any, context: RSCContext): Promise<RSCNode[]> {
   if (children == null) {
     return [];
   }
 
   if (Array.isArray(children)) {
-    return children.flatMap(child => serializeElement(child, context));
+    const results = await Promise.all(
+      children.map(child => serializeElement(child, context))
+    );
+    return results.flat();
   }
 
-  const result = serializeElement(children, context);
+  const result = await serializeElement(children, context);
   return Array.isArray(result) ? result : [result];
 }
 
@@ -231,7 +276,7 @@ function createTextNode(content: string): RSCText {
 }
 
 /**
- * 清理 props 以便序列化
+ * 清理 props 以便序列化（同步版本）
  *
  * 移除函数、symbols 和其他不可序列化的值
  */
@@ -259,7 +304,61 @@ function sanitizeProps(props: any): Record<string, any> {
     }
 
     // 递归处理对象（用于 style 等）
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (value && typeof value === 'object' && !Array.isArray(value) && !isValidElement(value)) {
+      sanitized[key] = sanitizeProps(value);
+      continue;
+    }
+
+    // 包含基本类型值和数组
+    sanitized[key] = value;
+  }
+
+  return sanitized;
+}
+
+/**
+ * 清理 props 并处理 children
+ *
+ * Phase 2.5: 支持嵌套 Client Components
+ * - 序列化 children 中的 React 元素（可能包含其他 Client Components）
+ */
+async function sanitizePropsWithChildren(props: any, context: RSCContext): Promise<Record<string, any>> {
+  if (!props || typeof props !== 'object') {
+    return {};
+  }
+
+  const sanitized: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(props)) {
+    // 跳过特殊 props
+    if (key === 'key' || key === 'ref') {
+      continue;
+    }
+
+    // Phase 2.5: 特殊处理 children - 可能包含嵌套的 Client Components
+    if (key === 'children') {
+      // 序列化 children（递归处理嵌套组件）
+      const serializedChildren = await serializeChildren(value, context);
+
+      // 如果 children 有内容，保存序列化后的结果
+      if (serializedChildren.length > 0) {
+        sanitized[key] = serializedChildren;
+      }
+      continue;
+    }
+
+    // 跳过函数
+    if (typeof value === 'function') {
+      continue;
+    }
+
+    // 跳过 symbols
+    if (typeof value === 'symbol') {
+      continue;
+    }
+
+    // 递归处理对象（用于 style 等）
+    if (value && typeof value === 'object' && !Array.isArray(value) && !isValidElement(value)) {
       sanitized[key] = sanitizeProps(value);
       continue;
     }
@@ -274,16 +373,17 @@ function sanitizeProps(props: any): Record<string, any> {
 /**
  * 创建 RSC Payload
  *
- * 高级函数：序列化页面组件
+ * Phase 2.5 Update: 支持异步页面组件
+ * 高级函数：序列化页面组件（构建时等待所有异步操作）
  */
-export function createRSCPayload(PageComponent: any, props: any = {}): RSCPayload {
+export async function createRSCPayload(PageComponent: any, props: any = {}): Promise<RSCPayload> {
   const context: RSCContext = {
     clientComponentCounter: 0,
     clientComponents: new Map(),
   };
 
   const element = createElement(PageComponent, props);
-  const { tree, clientComponents } = serializeToRSC(element, context);
+  const { tree, clientComponents } = await serializeToRSC(element, context);
 
   return {
     version: '1.0',

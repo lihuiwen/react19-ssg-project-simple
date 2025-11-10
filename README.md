@@ -8,11 +8,11 @@
 
 ## 📊 当前状态
 
-🎉 **MVP-Phase 2 已完成**：简化版 React Server Components (RSC)
+🎉 **MVP-Phase 2.5 已完成**：增强版 RSC（Async + Fragment + 嵌套）
 
 ### 已实现功能
 
-- ✅ React 19 RC 服务端渲染（`renderToString`）
+- ✅ React 19 RC 服务端渲染（从 RSC payload 生成 HTML）
 - ✅ TypeScript 支持
 - ✅ 静态 HTML 生成
 - ✅ 路由配置系统
@@ -20,11 +20,15 @@
 - ✅ 交互式组件（Counter）
 - ✅ Webpack 打包客户端代码
 - ✅ 双入口构建系统（server + client）
-- ✅ **RSC 组件树序列化** ⬅️ Phase 2 新增！
-- ✅ **Server/Client 组件分离** ⬅️ Phase 2 新增！
-- ✅ **RSC Payload 生成（rsc.json）** ⬅️ Phase 2 新增！
-- ✅ **客户端组件树重建** ⬅️ Phase 2 新增！
-- ✅ **选择性 Hydration** ⬅️ Phase 2 新增！
+- ✅ **RSC 组件树序列化** (Phase 2)
+- ✅ **Server/Client 组件分离** (Phase 2)
+- ✅ **RSC Payload 生成（rsc.json）** (Phase 2)
+- ✅ **客户端组件树重建** (Phase 2)
+- ✅ **选择性 Hydration** (Phase 2)
+- ✅ **Async Server Components** ⬅️ Phase 2.5 新增！
+- ✅ **Fragment 支持（React.Fragment / <>...</>）** ⬅️ Phase 2.5 新增！
+- ✅ **嵌套 Client Components** ⬅️ Phase 2.5 新增！
+- ✅ **RSC Payload 到 HTML 转换** ⬅️ Phase 2.5 新增！
 
 ### 技术栈
 
@@ -33,7 +37,14 @@
 - **TypeScript**: 5.9.3
 - **运行时**: tsx（用于执行构建脚本）
 - **包管理**: pnpm
-- **RSC**: 手写简化实现（序列化 + 反序列化）
+- **RSC**: 手写增强实现（异步序列化 + Fragment + 嵌套组件）
+
+### 构建产物
+
+- `index.html`: 3.7KB（从 RSC payload 生成）
+- `rsc.json`: 21KB（包含异步数据的完整组件树）
+- `client-rsc.js`: 1.03MB（开发模式，仅包含 Client Components）
+- 构建时间：~149ms（HTML 生成），~4.8s（webpack）
 
 ## 🚀 快速开始
 
@@ -60,9 +71,15 @@ pnpm preview
 然后在浏览器打开 `http://localhost:3000`
 
 **为什么需要本地服务器？**
-- Phase 2 需要加载客户端 JavaScript 和 rsc.json
+- Phase 2/2.5 需要加载客户端 JavaScript 和 rsc.json
 - 浏览器安全策略要求通过 HTTP 协议加载脚本和 JSON
 - 直接打开 HTML 文件无法加载 `/assets/client-rsc.js` 和 `/rsc.json`
+
+**页面展示的内容（Phase 2.5）：**
+1. **Async Server Component** - 显示构建时异步获取的数据
+2. **Fragment Demo** - 演示 Fragment 的使用，无额外 DOM 包裹
+3. **Interactive Counter** - 可交互的计数器组件
+4. **Nested Components** - 可折叠的 InteractiveCard 包含嵌套的 Counter
 
 ### 其他命令
 
@@ -78,28 +95,33 @@ pnpm rebuild       # 清理并重新构建
 ```
 react19-ssg-project-simple/
 ├── src/
-│   ├── pages/                     # 页面组件
-│   │   └── index.tsx              # 首页（Server Component）
-│   ├── components/                # 共享组件
-│   │   └── Counter.client.tsx    # 交互式计数器（Client Component）
-│   ├── entries/                   # 构建入口
-│   │   ├── client.tsx             # Phase 1: 客户端 hydration 入口
-│   │   └── client-rsc.tsx         # Phase 2: RSC 客户端入口 ⬅️ 新增！
+│   ├── pages/                           # 页面组件
+│   │   └── index.tsx                    # 首页（Server Component）
+│   ├── components/                      # 共享组件
+│   │   ├── Counter.client.tsx           # 交互式计数器（Client Component）
+│   │   ├── AsyncData.server.tsx         # Phase 2.5: Async Server Component ⬅️ 新增！
+│   │   ├── FragmentList.tsx             # Phase 2.5: Fragment 示例 ⬅️ 新增！
+│   │   └── InteractiveCard.client.tsx   # Phase 2.5: 嵌套 Client Component ⬅️ 新增！
+│   ├── entries/                         # 构建入口
+│   │   ├── client.tsx                   # Phase 1: 客户端 hydration 入口
+│   │   └── client-rsc.tsx               # Phase 2/2.5: RSC 客户端入口
 │   ├── lib/
-│   │   ├── builder.ts             # 核心 SSG + RSC 构建脚本
-│   │   ├── rsc-types.ts           # RSC 类型定义 ⬅️ 新增！
-│   │   ├── rsc-serializer.ts      # RSC 序列化器 ⬅️ 新增！
-│   │   └── rsc-deserializer.ts    # RSC 反序列化器 ⬅️ 新增！
+│   │   ├── builder.ts                   # 核心 SSG 构建脚本（Phase 2.5 升级）
+│   │   ├── rsc-types.ts                 # Phase 2/2.5: RSC 类型定义（增加 Fragment）
+│   │   ├── rsc-serializer.ts            # Phase 2/2.5: RSC 序列化器（支持 async）
+│   │   ├── rsc-deserializer.ts          # Phase 2/2.5: RSC 反序列化器（支持嵌套）
+│   │   └── rsc-to-html.ts               # Phase 2.5: RSC Payload 到 HTML ⬅️ 新增！
 │   └── routes.config.ts           # 路由配置
-├── dist/                          # 构建输出（git ignored）
-│   ├── index.html                 # 服务端渲染的 HTML (2.6KB)
-│   ├── rsc.json                   # RSC Payload (5.5KB) ⬅️ 新增！
+├── dist/                               # 构建输出（git ignored）
+│   ├── index.html                      # 从 RSC payload 生成的 HTML (3.7KB)
+│   ├── rsc.json                        # RSC Payload (21KB，包含异步数据)
 │   └── assets/
-│       ├── client-rsc.js          # RSC 客户端 bundle (1MB dev)
-│       └── client-rsc.js.map      # Source map
+│       ├── client-rsc.js               # RSC 客户端 bundle (1MB dev)
+│       └── client-rsc.js.map           # Source map
 ├── docs/
-│   ├── Roadmap.md                 # 完整的演进规划
-│   └── RSC-Architecture.md        # RSC 架构文档 ⬅️ 新增！
+│   ├── Roadmap.md                      # 完整的演进规划（已更新 Phase 2.5）
+│   ├── RSC-Architecture.md             # RSC 架构文档
+│   └── Phase-2.5-Summary.md            # Phase 2.5 完成总结 ⬅️ 新增！
 ├── webpack.config.cjs             # Webpack 配置（RSC 客户端打包）
 ├── tsconfig.json                  # TypeScript 配置
 ├── package.json
@@ -110,40 +132,50 @@ react19-ssg-project-simple/
 
 ## 🔍 核心原理
 
-### Phase 2: RSC (React Server Components) 工作流程 ⭐ 当前
+### Phase 2.5: Enhanced RSC 工作流程 ⭐ 当前
 
 #### 构建时（Build Time）
 
 1. **Webpack 打包 Client Components**：
    ```bash
-   webpack → dist/assets/client-rsc.js  # 只包含 Counter.client.tsx
+   webpack → dist/assets/client-rsc.js  # 只包含 Client Components
    ```
 
-2. **RSC 序列化 + HTML 生成**：
+2. **RSC 序列化 + HTML 生成**（Phase 2.5 增强）：
    ```typescript
    // src/lib/builder.ts
    import { createRSCPayload } from './rsc-serializer';
+   import { rscPayloadToHTML } from './rsc-to-html';
 
-   // 1. 序列化组件树为 RSC Payload
-   const rscPayload = createRSCPayload(PageComponent);
+   // 1. 序列化组件树为 RSC Payload（支持 async）
+   const rscPayload = await createRSCPayload(PageComponent);
    fs.writeFileSync('dist/rsc.json', JSON.stringify(rscPayload));
 
-   // 2. 仍然生成 HTML（用于 SEO 和快速首屏）
-   const html = renderToString(<PageComponent />);
+   // 2. 从 RSC payload 生成 HTML（Phase 2.5 新方法）
+   // 解决了 renderToString 不支持 async 组件的问题
+   const html = rscPayloadToHTML(rscPayload);
    fs.writeFileSync('dist/index.html', createHTMLTemplate(html));
    ```
 
-3. **RSC Payload 结构**：
+3. **RSC Payload 结构**（Phase 2.5 扩展）：
    ```json
    {
      "version": "1.0",
      "tree": [
-       { "$$type": "element", "tag": "div", ... },
+       { "$$type": "element", "tag": "div", "props": {...}, "children": [...] },
+       { "$$type": "fragment", "children": [...] },  // Phase 2.5: Fragment 支持
        { "$$type": "text", "content": "Hello" },
-       { "$$type": "client-placeholder", "id": "Counter_0", ... }
+       {
+         "$$type": "client-placeholder",
+         "id": "Counter_0",
+         "props": {
+           "children": [...]  // Phase 2.5: 支持嵌套组件
+         }
+       }
      ],
      "clientComponents": {
-       "Counter_0": "src/components/Counter.client.tsx"
+       "Counter_0": "src/components/Counter.client.tsx",
+       "InteractiveCard_0": "src/components/InteractiveCard.client.tsx"
      }
    }
    ```
