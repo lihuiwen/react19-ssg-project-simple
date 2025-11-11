@@ -316,9 +316,71 @@ react19-ssg-project-simple/
 
 **完成时间**: 2025-11-08（1 天实现）
 
-### 🔮 Phase 3-4: ISR & SSR（未来）
+### ✅ Phase 2.5: Enhanced RSC（已完成）⭐
 
-暂时跳过，建议先完成 Phase 0-2 后再考虑
+**目标**: 增强 RSC 实现，支持 Async、Fragment、嵌套组件
+
+**已完成**:
+- ✅ Async Server Components（构建时 async/await）
+- ✅ Fragment 支持（React.Fragment 和 `<>...</>`）
+- ✅ 嵌套 Client Components 支持
+- ✅ RSC Payload 到 HTML 转换（`rsc-to-html.ts`）
+- ✅ 完全异步的序列化链
+- ✅ 示例组件：AsyncData.server, FragmentList, InteractiveCard
+
+**关键学习点**:
+- ✅ 异步组件序列化原理
+- ✅ Fragment 节点处理（无额外 DOM）
+- ✅ 嵌套组件的 props 传递和 hydration
+- ✅ 从 RSC payload 生成 HTML（绕过 renderToString 限制）
+
+**完成时间**: 2025-11-11（~3 小时实现）
+
+### 🔮 Phase 3: ISR（增量静态再生）- 下一步
+
+**⚠️ 重要**: ISR 是**静态生成的增强**，不是 SSR！
+
+**目标**: 支持内容更新而无需重新构建整个站点
+
+**计划实现**:
+- [ ] Koa 服务器 + 缓存系统
+- [ ] SWR (stale-while-revalidate) 策略
+- [ ] 后台异步再生
+- [ ] Webhook 触发手动更新
+- [ ] 并发控制和锁机制
+
+**关键特性**:
+- 页面仍然是**预渲染**的（构建时或后台生成）
+- 请求立即返回缓存内容（不阻塞）
+- 过期页面在后台异步更新
+- 适用于内容更新频率低的页面（如博客）
+
+**预计时间**: 3-5 天
+
+**详细规划**: 见 `docs/Phase-3-ISR-Plan.md`
+
+### 🔮 Phase 4: SSR（服务端渲染）- 未来
+
+**⚠️ 区别**: SSR 是**请求时渲染**，与 ISR 的预渲染+缓存完全不同！
+
+**目标**: 支持需要实时数据的页面
+
+**计划实现**:
+- [ ] 扩展 Koa 服务器支持 SSR 路由
+- [ ] 请求时执行 `renderToString()`
+- [ ] 适用于实时数据页面（如仪表盘）
+
+**关键特性**:
+- 每次请求都**重新生成** HTML
+- 阻塞请求直到渲染完成
+- 支持实时数据和用户个性化内容
+- 适用于高频更新的页面
+
+**技术依赖**: 需要先完成 Phase 3（ISR），因为：
+- Phase 5 (Streaming) 依赖 Phase 4 (SSR)
+- Phase 6 (完整 RSC) 依赖 Phase 5 (Streaming)
+
+**演进路径**: Phase 3 (ISR) → Phase 4 (SSR) → Phase 5 (Streaming) → Phase 6 (完整 RSC)
 
 ## 📚 学习资源
 

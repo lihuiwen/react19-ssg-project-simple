@@ -107,15 +107,37 @@ This project supports two development paths:
 - Achieved: 80%+ of RSC core concepts implemented and understood
 
 ### Phase 3: ISR (Incremental Static Regeneration)
-- Support content updates via stale-while-revalidate (SWR) or webhook triggers
-- Background regeneration: `fetchPageData + renderRSC()` → atomic S3 replacement
+**⚠️ 重要**: ISR 是**静态生成的增强**，不是 SSR！页面仍然是预渲染的，只是支持后台更新。
+
+**MVP 实现**（本项目）：
+- Koa 服务器 + 内存/文件系统缓存
+- SWR (stale-while-revalidate) 策略
+- Webhook 触发手动更新
+- 后台异步再生，不阻塞请求
+
+**Production 实现**（可选）：
+- CDN + S3 存储
+- 原子性文件替换
+- 分布式缓存失效
+
+**共同特性**：
 - Route-level concurrency locks to prevent regeneration storms
 - Target: Update latency ≤ 60s (webhook mode), failure rate < 1%
 
-### Phase 4: Hybrid SSR
-- Add server-side rendering for real-time routes (`/dashboard/**`, `/checkout/**`, `/api/**`)
+### Phase 4: Hybrid SSR (Request-Time Rendering)
+**⚠️ 区别**: SSR 是**请求时渲染**，每次请求都重新生成 HTML，与 ISR 的预渲染+缓存完全不同！
+
+**MVP 实现**（本项目）：
+- 扩展 Koa 服务器支持 SSR 路由
+- `renderToString()` 在请求时执行
+- 适用于需要实时数据的页面
+
+**Production 实现**（可选）：
 - Dual build outputs: `dist/static` (SSG+RSC+ISR) and `dist/server` (SSR runtime)
 - CDN routing: static paths → S3, dynamic paths → SSR origin
+
+**共同特性**：
+- Real-time routes: `/dashboard/**`, `/checkout/**`, `/api/**`
 - Target: SSR TTFB ≤ 500ms, static hit rate ≥ 95%
 
 ## Development Commands
